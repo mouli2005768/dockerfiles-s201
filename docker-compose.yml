@@ -1,5 +1,9 @@
+version: "3.8"
 
 services:
+  # ---------------------------
+  # MySQL Database
+  # ---------------------------
   db:
     image: mysql:8.0
     container_name: ecommerce-db2
@@ -8,16 +12,24 @@ services:
       MYSQL_DATABASE: ecommerce
       MYSQL_ROOT_PASSWORD: Mouli@2006
     ports:
-      - "3308:3306"
+      - "3308:3306"   # Map host 3308 to container 3306
     volumes:
       - db_data:/var/lib/mysql
     networks:
       - ecommerce-net
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
+  # ---------------------------
+  # Backend (Spring Boot)
+  # ---------------------------
   backend:
     build:
-      context: .
-      dockerfile: Dockerfile.backend
+      context: ./ecommerce_backend
+      dockerfile: ../dockerfiles/Dockerfile.backend
     container_name: ecommerce-backend2
     restart: always
     environment:
@@ -25,17 +37,22 @@ services:
       SPRING_DATASOURCE_USERNAME: root
       SPRING_DATASOURCE_PASSWORD: Mouli@2006
       SPRING_JPA_HIBERNATE_DDL_AUTO: update
+      SERVER_PORT: 8081
     depends_on:
-      - db
+      db:
+        condition: service_healthy
     ports:
       - "8081:8081"
     networks:
       - ecommerce-net
 
+  # ---------------------------
+  # Frontend (React / Angular)
+  # ---------------------------
   frontend:
     build:
-      context: .
-      dockerfile: Dockerfile.frontend
+      context: ./ecommerce_frontend
+      dockerfile: ../dockerfiles/Dockerfile.frontend
     container_name: ecommerce-frontend2
     restart: always
     ports:
@@ -45,9 +62,15 @@ services:
     networks:
       - ecommerce-net
 
+# ---------------------------
+# Volumes
+# ---------------------------
 volumes:
   db_data:
 
+# ---------------------------
+# Networks
+# ---------------------------
 networks:
   ecommerce-net:
     driver: bridge
